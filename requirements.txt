@@ -1,0 +1,14 @@
+# DemandLens: Initial Core Dependencies
+# Keep dependencies lean and minimal for foundation
+
+# Core Data Processing
+pyspark>=3.5.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+
+# Configuration & Environment
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=8.0.0
+
