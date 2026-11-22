@@ -35,6 +35,20 @@ htmlcov/
 *.key
 
 # Data directories and datasets (preserve folder structure via .gitkeep)
+data/source_csv/linkedin_2024/archive/*
+!data/source_csv/linkedin_2024/archive/.gitkeep
+data/source_csv/linkedin_2024/extracted/*
+!data/source_csv/linkedin_2024/extracted/.gitkeep
+data/source_csv/indian_job_market_2025_2026/archive/*
+!data/source_csv/indian_job_market_2025_2026/archive/.gitkeep
+data/source_csv/indian_job_market_2025_2026/extracted/*
+!data/source_csv/indian_job_market_2025_2026/extracted/.gitkeep
+data/source_csv/linkedin_2024/*
+!data/source_csv/linkedin_2024/.gitkeep
+data/source_csv/indian_job_market_2025_2026/*
+!data/source_csv/indian_job_market_2025_2026/.gitkeep
+data/source_api/*
+!data/source_api/.gitkeep
 data/bronze/*
 !data/bronze/.gitkeep
 data/silver/*
@@ -44,9 +58,11 @@ data/gold/*
 *.parquet
 *.csv
 *.tsv
+*.json
 *.jsonl
 *.zip
 *.tar.gz
+*.gz
 
 # Apache Spark & Hadoop artifacts
 hadoop/
