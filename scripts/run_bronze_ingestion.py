@@ -56,6 +56,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Source identifier to ingest ('all', 'linkedin_2024', 'indian_job_market_2025_2026').",
     )
     parser.add_argument(
+        "--table",
+        type=str,
+        default=None,
+        help="Optional specific table name to ingest (e.g. 'job_postings').",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Safely overwrite existing Bronze tables via staging directories.",
@@ -71,6 +77,10 @@ def build_parser() -> argparse.ArgumentParser:
 def get_spark_session() -> SparkSession:
     """Initialize an optimized local SparkSession."""
     configure_windows_environment()
+    spark_tmp = (PROJECT_ROOT / "data" / "temp_validation" / "spark_tmp").resolve()
+    spark_tmp.mkdir(parents=True, exist_ok=True)
+    spark_tmp_str = str(spark_tmp).replace("\\", "/")
+
     spark = (
         SparkSession.builder.appName("DemandLens-Bronze-Ingestion")
         .master("local[*]")
@@ -80,6 +90,11 @@ def get_spark_session() -> SparkSession:
         .config("spark.default.parallelism", "8")
         .config("spark.sql.execution.arrow.pyspark.enabled", "false")
         .config("spark.ui.enabled", "false")
+        .config("spark.local.dir", str(spark_tmp))
+        .config(
+            "spark.driver.extraJavaOptions",
+            f"-Djava.io.tmpdir={spark_tmp_str} --enable-native-access=ALL-UNNAMED",
+        )
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("WARN")
@@ -253,6 +268,14 @@ def main():
         if not target_sources:
             logger.error(f"Source configuration '{args.source}' not found. Available: {[c.source_id for c in configs]}")
             sys.exit(1)
+
+    if args.table:
+        for sc in target_sources:
+            matched = [t for t in sc.tables if t.table_name == args.table]
+            if not matched:
+                logger.error(f"Table '{args.table}' not found in source '{sc.source_id}'. Available: {[t.table_name for t in sc.tables]}")
+                sys.exit(1)
+            sc.tables = matched
 
     spark = get_spark_session()
     t_start = time.time()

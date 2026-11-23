@@ -20,12 +20,22 @@ from src.demandlens.ingestion.dataset_inspector import configure_windows_environ
 def spark_session():
     """Create a lightweight PySpark session for testing."""
     configure_windows_environment()
+    project_root = Path(__file__).resolve().parent.parent
+    spark_tmp = (project_root / "data" / "temp_validation" / "spark_tmp").resolve()
+    spark_tmp.mkdir(parents=True, exist_ok=True)
+    spark_tmp_str = str(spark_tmp).replace("\\", "/")
+
     spark = (
         SparkSession.builder.appName("DemandLens-TestBronze")
         .master("local[2]")
         .config("spark.driver.memory", "2g")
         .config("spark.sql.shuffle.partitions", "2")
         .config("spark.ui.enabled", "false")
+        .config("spark.local.dir", str(spark_tmp))
+        .config(
+            "spark.driver.extraJavaOptions",
+            f"-Djava.io.tmpdir={spark_tmp_str} --enable-native-access=ALL-UNNAMED",
+        )
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("ERROR")

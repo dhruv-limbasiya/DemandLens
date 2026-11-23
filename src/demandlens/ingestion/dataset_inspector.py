@@ -42,6 +42,13 @@ def configure_windows_environment() -> None:
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
+    # Configure Spark temporary directory on D: drive
+    spark_tmp = project_root / "data" / "temp_validation" / "spark_tmp"
+    spark_tmp.mkdir(parents=True, exist_ok=True)
+    if "SPARK_LOCAL_DIRS" not in os.environ:
+        os.environ["SPARK_LOCAL_DIRS"] = str(spark_tmp)
+
+
 
 @dataclass
 class ColumnProfile:

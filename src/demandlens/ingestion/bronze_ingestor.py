@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import pickle
 import shutil
 import sys
 import time
@@ -19,8 +20,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.pandas.types import to_arrow_schema
 
 # Ensure project root is available
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -35,6 +39,77 @@ if not logger.handlers:
     handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+
+
+def _write_partition_to_parquet_worker(
+    part_idx: int,
+    iterator,
+    output_dir_str: str,
+    arrow_schema_bytes: bytes,
+    batch_size: int = 10000,
+    compression: str = "snappy",
+) -> List[int]:
+    """Worker function executed per Spark partition to write a Parquet part file via PyArrow.
+    
+    Operates in strictly bounded memory: collects up to `batch_size` rows into memory,
+    writes them as a Parquet row group, and flushes immediately. Never collects the full partition.
+    """
+    import pickle
+    from pathlib import Path
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    out_dir = Path(output_dir_str)
+    file_path = out_dir / f"part-{part_idx:05d}.parquet"
+    arrow_schema = pickle.loads(arrow_schema_bytes)
+
+    writer = None
+    row_count = 0
+    batch_rows = []
+
+    try:
+        for row in iterator:
+            batch_rows.append(row.asDict())
+            if len(batch_rows) >= batch_size:
+                table = pa.Table.from_pylist(batch_rows, schema=arrow_schema)
+                if writer is None:
+                    writer = pq.ParquetWriter(str(file_path), arrow_schema, compression=compression)
+                writer.write_table(table)
+                row_count += len(batch_rows)
+                batch_rows.clear()
+
+        if batch_rows:
+            table = pa.Table.from_pylist(batch_rows, schema=arrow_schema)
+            if writer is None:
+                writer = pq.ParquetWriter(str(file_path), arrow_schema, compression=compression)
+            writer.write_table(table)
+            row_count += len(batch_rows)
+            batch_rows.clear()
+
+        # If partition was empty (0 rows), write valid empty Parquet file with schema header/footer
+        if writer is None:
+            writer = pq.ParquetWriter(str(file_path), arrow_schema, compression=compression)
+
+    finally:
+        if writer is not None:
+            writer.close()
+
+    return [row_count]
+
+
+def _make_partition_writer(
+    output_dir_str: str,
+    arrow_schema_bytes: bytes,
+    batch_size: int = 10000,
+    compression: str = "snappy",
+):
+    """Factory creating a partition worker closure free of object/Spark references."""
+    def _closure(part_idx, iterator):
+        return _write_partition_to_parquet_worker(
+            part_idx, iterator, output_dir_str, arrow_schema_bytes, batch_size, compression
+        )
+    return _closure
+
 
 
 @dataclass
@@ -189,6 +264,36 @@ class BronzeIngestor:
         meta_dir = (self.project_root / bronze_rel / "_metadata").resolve()
         meta_dir.mkdir(parents=True, exist_ok=True)
         return meta_dir
+
+    @staticmethod
+    def write_dataframe_to_parquet_pyarrow(
+        df: DataFrame,
+        output_dir: Path,
+        batch_size: int = 10000,
+        compression: str = "snappy",
+    ) -> int:
+        """Stream Spark DataFrame to partitioned Parquet files using PyArrow with bounded memory.
+
+        Avoids full DataFrame toPandas(), collect(), or full-dataset in-memory materialization.
+        Rows are processed within each Spark partition in bounded batches of `batch_size` rows.
+        """
+        import pickle
+        from pyspark.sql.pandas.types import to_arrow_schema
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        arrow_schema = to_arrow_schema(df.schema, timezone="UTC")
+        arrow_schema_bytes = pickle.dumps(arrow_schema)
+        out_dir_str = str(output_dir.resolve())
+
+        writer_fn = _make_partition_writer(
+            output_dir_str=out_dir_str,
+            arrow_schema_bytes=arrow_schema_bytes,
+            batch_size=batch_size,
+            compression=compression,
+        )
+
+        counts = df.rdd.mapPartitionsWithIndex(writer_fn).collect()
+        return sum(counts)
 
     def is_already_ingested(self, output_path: Path) -> bool:
         """Check if output directory exists and contains valid Parquet files."""
@@ -349,15 +454,15 @@ class BronzeIngestor:
 
             # Safe Staging Directory Write Strategy
             staging_path = output_path.parent / f"_staging_{table_config.output_subdir}_{uuid4().hex[:8]}"
-            logger.info(f"  Writing Parquet to staging path: {staging_path}")
+            logger.info(f"  Writing Parquet to staging path via PyArrow: {staging_path}")
             if staging_path.exists():
                 shutil.rmtree(staging_path, ignore_errors=True)
 
-            (
-                df_bronze.write.mode("overwrite")
-                .format("parquet")
-                .option("compression", "snappy")
-                .save(str(staging_path))
+            self.write_dataframe_to_parquet_pyarrow(
+                df=df_bronze,
+                output_dir=staging_path,
+                batch_size=10000,
+                compression="snappy",
             )
 
             # Validate staging output before swapping
@@ -404,6 +509,8 @@ class BronzeIngestor:
             result.ingestion_status = "FAILED"
             result.validation_status = "FAILED"
             result.error_details = str(exc)
+            if "staging_path" in locals() and staging_path.exists():
+                shutil.rmtree(staging_path, ignore_errors=True)
 
         result.processing_duration_seconds = round(time.time() - t0, 2)
         self._save_run_metadata(source_config, result)
