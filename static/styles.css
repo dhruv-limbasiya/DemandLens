@@ -1,0 +1,190 @@
+/* DemandLens Design System — Single Stylesheet */
+
+html, body, [class*="css"] {
+    font-family: "IBM Plex Sans", sans-serif;
+    color: #12161C;
+    font-variant-numeric: tabular-nums;
+}
+
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    max-width: 1280px;
+}
+
+/* Body copy line length */
+p, li, .dl-finding, .dl-question {
+    max-width: 68ch;
+}
+
+/* Page header */
+.dl-page-title {
+    font-size: 29px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #12161C;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.01em;
+}
+
+.dl-question {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #4B5563;
+    margin: 0 0 16px 0;
+}
+
+.dl-section-title {
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #12161C;
+    margin: 24px 0 4px 0;
+}
+
+/* Finding sentence above each chart */
+.dl-finding {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #12161C;
+    margin: 0 0 12px 0;
+}
+
+/* Muted caption under charts */
+.dl-caption {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #6B7280;
+    margin: 4px 0 16px 0;
+}
+
+/* Hairline Stat Strip (one bordered container, no shadows, 6px radius) */
+.dl-stat-strip {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid #DDE1E6;
+    border-radius: 6px;
+    background-color: #FFFFFF;
+    margin: 8px 0 24px 0;
+    overflow: hidden;
+}
+
+.dl-stat-cell {
+    flex: 1 1 0;
+    padding: 16px 20px;
+    border-right: 1px solid #DDE1E6;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.dl-stat-cell--anchor {
+    flex: 2 1 0;
+}
+
+.dl-stat-cell:last-child {
+    border-right: none;
+}
+
+.dl-stat-label {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    color: #4B5563;
+    margin-bottom: 6px;
+}
+
+.dl-stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.15;
+    color: #12161C;
+    font-variant-numeric: tabular-nums;
+}
+
+.dl-stat-cell--anchor .dl-stat-value {
+    font-size: 42px;
+    line-height: 1.05;
+}
+
+.dl-stat-note {
+    font-size: 12px;
+    font-weight: 400;
+    color: #6B7280;
+    margin-top: 4px;
+}
+
+/* Empty & error states */
+.dl-empty-state {
+    border: 1px solid #DDE1E6;
+    border-radius: 6px;
+    padding: 20px 24px;
+    background-color: #FFFFFF;
+    margin: 12px 0;
+}
+
+.dl-empty-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #12161C;
+    margin-bottom: 4px;
+}
+
+.dl-empty-body {
+    font-size: 14px;
+    font-weight: 400;
+    color: #4B5563;
+}
+
+/* Quiet footer */
+.dl-footer {
+    margin-top: 48px;
+    padding-top: 12px;
+    border-top: 1px solid #DDE1E6;
+    font-size: 12px;
+    color: #6B7280;
+}
+
+/* Wordmark in sidebar */
+.dl-wordmark {
+    font-size: 20px;
+    font-weight: 600;
+    color: #12161C;
+    letter-spacing: -0.01em;
+    margin: 0 0 2px 0;
+}
+
+.dl-wordmark-sub {
+    font-size: 12px;
+    font-weight: 400;
+    color: #6B7280;
+    margin: 0 0 16px 0;
+}
+
+/* Focus & hover accessibility */
+button:focus-visible,
+[role="button"]:focus-visible,
+select:focus-visible,
+input:focus-visible,
+a:focus-visible {
+    outline: 2px solid #12161C !important;
+    outline-offset: 2px !important;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+button:hover {
+    border-color: #12161C !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition-duration: 0.001ms !important;
+        animation-duration: 0.001ms !important;
+    }
+}
